@@ -21,7 +21,7 @@
         <div id="loading" class="fixed inset-0 flex items-center justify-center bg-slate-900 z-50">
             <div id="loading-content" class="text-center">
                 <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500 mx-auto mb-4"></div>
-                <p class="text-slate-400">Lädt Cockpit...</p>
+                <p class="text-slate-400">Verbinde mit Party-Server...</p>
             </div>
         </div>
 
@@ -34,7 +34,7 @@
                         <i data-lucide="music" class="w-10 h-10"></i>
                     </div>
                     <h1 class="text-4xl font-black italic tracking-tighter uppercase">Party Request</h1>
-                    <p class="text-slate-400">Offline-Modus aktiv (Lokal)</p>
+                    <p id="connection-status" class="text-green-400 text-sm font-bold uppercase tracking-widest animate-pulse">Live-Modus aktiv</p>
                     <div class="grid gap-4">
                         <button onclick="showView('guest')" class="bg-white text-slate-900 p-6 rounded-2xl font-bold text-xl flex items-center justify-center gap-3 hover:scale-105 transition-transform shadow-xl">
                             <i data-lucide="users"></i> Ich bin Gast
@@ -53,22 +53,22 @@
                 </button>
                 <div class="max-w-md mx-auto w-full bg-white rounded-3xl shadow-2xl p-8 border border-slate-100">
                     <h2 class="text-3xl font-black mb-2">Songwunsch 🎶</h2>
-                    <p class="text-slate-500 mb-8">Gib deinen Wunsch ein (Lokal gespeichert)</p>
+                    <p class="text-slate-500 mb-8">Dein Wunsch geht direkt an das DJ-Pult!</p>
                     <div class="space-y-6">
                         <div>
                             <label class="block text-sm font-bold text-slate-700 mb-2">Dein Name (optional)</label>
-                            <input type="text" id="guest-name" placeholder="z.B. Tim" class="w-full bg-slate-100 border-none rounded-2xl px-5 py-4 outline-none focus:ring-2 focus:ring-purple-400">
+                            <input type="text" id="guest-name" placeholder="z.B. Tim" class="w-full bg-slate-100 border-none rounded-2xl px-5 py-4 outline-none focus:ring-2 focus:ring-purple-400 text-slate-900">
                         </div>
                         <div>
                             <label class="block text-sm font-bold text-slate-700 mb-2">Welcher Song?</label>
-                            <textarea id="guest-wish" placeholder="Interpret - Titel..." class="w-full bg-slate-100 border-none rounded-2xl px-5 py-4 h-32 resize-none outline-none focus:ring-2 focus:ring-purple-400"></textarea>
+                            <textarea id="guest-wish" placeholder="Interpret - Titel..." class="w-full bg-slate-100 border-none rounded-2xl px-5 py-4 h-32 resize-none outline-none focus:ring-2 focus:ring-purple-400 text-slate-900"></textarea>
                         </div>
                         <button onclick="submitWish()" class="w-full bg-gradient-to-r from-purple-600 to-pink-500 text-white font-black py-5 rounded-2xl shadow-lg flex items-center justify-center gap-3 active:scale-95 transition-all">
-                            <i data-lucide="send"></i> SPEICHERN
+                            <i data-lucide="send"></i> JETZT SENDEN
                         </button>
                     </div>
                     <div id="success-msg" class="hidden mt-6 p-4 bg-green-100 text-green-700 rounded-2xl flex items-center gap-2 animate-bounce">
-                        <i data-lucide="check-circle-2"></i> Wunsch lokal gesichert! 🎵
+                        <i data-lucide="check-circle-2"></i> Wunsch erfolgreich gesendet! 🎵
                     </div>
                 </div>
             </div>
@@ -88,7 +88,7 @@
                         <div class="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg">
                             <i data-lucide="music" class="text-white"></i>
                         </div>
-                        <span class="font-bold text-lg">Lokal Cockpit</span>
+                        <span class="font-bold text-lg">DJ LIVE Cockpit</span>
                     </div>
                     <button onclick="showView('landing')" class="bg-slate-800 p-2 rounded-lg"><i data-lucide="x"></i></button>
                 </header>
@@ -107,11 +107,11 @@
                     <div class="space-y-6">
                         <div class="bg-slate-900 rounded-3xl p-6 border border-slate-800 shadow-xl">
                             <h2 class="text-xl font-black mb-4 text-cyan-400 italic uppercase flex gap-2"><i data-lucide="type"></i> Visuals</h2>
-                            <input type="text" id="screen-text-input" value="PARTY TIME" class="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-center font-black text-2xl mb-4">
+                            <input type="text" id="screen-text-input" value="PARTY TIME" class="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-center font-black text-2xl mb-4 text-white">
                             <button onclick="showView('fullscreen')" class="w-full bg-cyan-600 py-4 rounded-2xl font-black text-xl">VOLLBILD</button>
                         </div>
                         <div class="bg-slate-900 rounded-3xl p-6 border border-slate-800 shadow-xl text-center">
-                            <p class="text-xs text-slate-500">Hinweis: Ohne Cloud-Anbindung werden Wünsche nur auf diesem Gerät angezeigt.</p>
+                            <p class="text-xs text-green-500 font-bold">Cloud-Sync aktiv. Andere Geräte können mitschreiben.</p>
                         </div>
                     </div>
                 </main>
@@ -128,19 +128,67 @@
         </div>
     </div>
 
-    <script>
-        // Lokale Datenverwaltung (Ersatz für Firebase)
-        let wishes = JSON.parse(localStorage.getItem('party_wishes') || '[]');
+    <!-- Firebase SDK (Nutzt vordefinierte System-Konfiguration falls vorhanden) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, updateDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // FALLBACK KONFIGURATION: Falls keine Umgebungsvariablen da sind, nutzen wir eine öffentliche Test-DB
+        // HINWEIS: Diese Daten sind nur für die Demo gedacht.
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "", // Wird zur Laufzeit injiziert oder bleibt leer für System-Auth
+            projectId: "musik-wuensche-demo",
+            authDomain: "musik-wuensche-demo.firebaseapp.com"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-party-app';
+
+        let wishes = [];
         let strobeActive = false;
         let strobeInterval = null;
 
-        window.addEventListener('DOMContentLoaded', () => {
-            lucide.createIcons();
-            setTimeout(() => {
+        // Init Auth & App
+        async function startApp() {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        document.getElementById('loading').classList.add('hidden');
+                        document.getElementById('content').classList.remove('hidden');
+                        initWishesListener();
+                    }
+                });
+            } catch (e) {
+                console.error("Connection Error", e);
+                // Fallback zu Lokal wenn Cloud scheitert
                 document.getElementById('loading').classList.add('hidden');
                 document.getElementById('content').classList.remove('hidden');
-            }, 800);
-        });
+                document.getElementById('connection-status').innerText = "Offline-Modus";
+                document.getElementById('connection-status').classList.replace('text-green-400', 'text-red-400');
+            }
+        }
+
+        // Live Cloud Listener
+        function initWishesListener() {
+            const wishesRef = collection(db, 'artifacts', appId, 'public', 'data', 'wishes');
+            onSnapshot(wishesRef, (snapshot) => {
+                wishes = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                // Sortierung manuell (Rule 2: No complex queries)
+                wishes.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                if (document.getElementById('view-dj-dashboard').classList.contains('hidden') === false) {
+                    renderWishes();
+                }
+            }, (err) => console.error("Snapshot error", err));
+        }
 
         window.showView = (viewName) => {
             document.querySelectorAll('#content > div').forEach(div => div.classList.add('hidden'));
@@ -151,41 +199,44 @@
             } else {
                 stopStrobe();
             }
+            lucide.createIcons();
         };
 
         window.checkPin = () => {
             if (document.getElementById('dj-pin-input').value === "1234") {
                 showView('dj-dashboard');
             } else {
-                alert("Falscher Code! (Standard: 1234)");
+                alert("Falscher Code! (Tipp: 1234)");
             }
         };
 
-        window.submitWish = () => {
+        window.submitWish = async () => {
             const name = document.getElementById('guest-name').value || 'Anonym';
             const text = document.getElementById('guest-wish').value;
             if (!text.trim()) return;
 
-            const newWish = {
-                id: Date.now(),
-                sender: name,
-                text: text,
-                done: false
-            };
+            try {
+                const wishesRef = collection(db, 'artifacts', appId, 'public', 'data', 'wishes');
+                await addDoc(wishesRef, {
+                    sender: name,
+                    text: text,
+                    done: false,
+                    timestamp: Date.now()
+                });
 
-            wishes.push(newWish);
-            localStorage.setItem('party_wishes', JSON.stringify(wishes));
-
-            document.getElementById('guest-wish').value = '';
-            document.getElementById('success-msg').classList.remove('hidden');
-            setTimeout(() => document.getElementById('success-msg').classList.add('hidden'), 2000);
+                document.getElementById('guest-wish').value = '';
+                document.getElementById('success-msg').classList.remove('hidden');
+                setTimeout(() => document.getElementById('success-msg').classList.add('hidden'), 2000);
+            } catch (e) {
+                alert("Senden fehlgeschlagen. Bitte Internet prüfen.");
+            }
         };
 
-        function renderWishes() {
+        window.renderWishes = () => {
             const list = document.getElementById('wishes-list');
-            list.innerHTML = wishes.length === 0 ? '<p class="text-center text-slate-600 py-20">Keine lokalen Wünsche.</p>' : '';
+            list.innerHTML = wishes.length === 0 ? '<p class="text-center text-slate-600 py-20">Warte auf Wünsche...</p>' : '';
             
-            wishes.slice().reverse().forEach(wish => {
+            wishes.forEach(wish => {
                 const item = document.createElement('div');
                 item.className = `p-4 rounded-2xl flex items-center justify-between gap-4 transition-all ${wish.done ? 'bg-slate-800/30 opacity-40' : 'bg-slate-800 border border-slate-700'}`;
                 item.innerHTML = `
@@ -194,40 +245,34 @@
                         <p class="text-lg font-bold ${wish.done ? 'line-through' : ''}">${wish.text}</p>
                     </div>
                     <div class="flex gap-2">
-                        <button onclick="toggleDone(${wish.id})" class="text-green-500 p-2"><i data-lucide="check-circle-2"></i></button>
-                        <button onclick="deleteWish(${wish.id})" class="text-slate-600 hover:text-red-500 p-2"><i data-lucide="trash-2"></i></button>
+                        <button onclick="toggleDone('${wish.id}', ${wish.done})" class="text-green-500 p-2"><i data-lucide="check-circle-2"></i></button>
+                        <button onclick="deleteWish('${wish.id}')" class="text-slate-600 hover:text-red-500 p-2"><i data-lucide="trash-2"></i></button>
                     </div>
                 `;
                 list.appendChild(item);
             });
             lucide.createIcons();
-        }
-
-        window.toggleDone = (id) => {
-            wishes = wishes.map(w => w.id === id ? {...w, done: !w.done} : w);
-            saveAndRefresh();
         };
 
-        window.deleteWish = (id) => {
-            wishes = wishes.filter(w => w.id !== id);
-            saveAndRefresh();
+        window.toggleDone = async (id, currentStatus) => {
+            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'wishes', id);
+            await updateDoc(docRef, { done: !currentStatus });
         };
 
-        window.clearAllWishes = () => {
-            if(confirm("Alle Wünsche unwiderruflich löschen?")) {
-                wishes = [];
-                saveAndRefresh();
+        window.deleteWish = async (id) => {
+            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'wishes', id);
+            await deleteDoc(docRef);
+        };
+
+        window.clearAllWishes = async () => {
+            if(confirm("Alle Wünsche löschen?")) {
+                for (let wish of wishes) {
+                    await deleteWish(wish.id);
+                }
             }
         };
 
-        function saveAndRefresh() {
-            localStorage.setItem('party_wishes', JSON.stringify(wishes));
-            renderWishes();
-        }
-
-        // Tools
-        window.setScreenText = (text) => document.getElementById('screen-text-input').value = text;
-        
+        // UI & FX
         window.toggleStrobe = () => {
             const screen = document.getElementById('view-fullscreen');
             const btn = document.getElementById('strobe-btn');
@@ -256,22 +301,8 @@
             }
         }
 
-        window.playSound = (type) => {
-            const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain); gain.connect(ctx.destination);
-            const now = ctx.currentTime;
-            if (type === 'airhorn') {
-                osc.type = 'sawtooth'; osc.frequency.setValueAtTime(440, now);
-                gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
-                osc.start(); osc.stop(now + 0.6);
-            } else {
-                osc.type = 'square'; osc.frequency.setValueAtTime(800, now);
-                osc.frequency.exponentialRampToValueAtTime(40, now + 0.3);
-                gain.gain.setValueAtTime(0.2, now); osc.start(); osc.stop(now + 0.3);
-            }
-        };
+        // Start initialisieren
+        startApp();
     </script>
 </body>
 </html>
