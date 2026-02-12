@@ -1,394 +1,294 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Plus, Trash2, Music, Volume2, Type, Zap, Maximize, X, 
-  Send, Users, Lock, ChevronLeft, CheckCircle2 
-} from 'lucide-react';
-import { initializeApp } from 'firebase/app';
-import { 
-  getFirestore, collection, addDoc, onSnapshot, 
-  query, deleteDoc, doc, updateDoc 
-} from 'firebase/firestore';
-import { 
-  getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken 
-} from 'firebase/auth';
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DJ Party Cockpit</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen">
 
-// --- Firebase Konfiguration ---
-const firebaseConfig = JSON.parse(__firebase_config);
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'dj-party-app';
-
-export default function App() {
-  const [view, setView] = useState('landing'); // landing, guest, dj-auth, dj-dashboard, fullscreen
-  const [user, setUser] = useState(null);
-  const [pin, setPin] = useState('');
-  const [wishes, setWishes] = useState([]);
-  const [newWish, setNewWish] = useState('');
-  const [guestName, setGuestName] = useState('');
-  const [screenText, setScreenText] = useState('ABSCHLUSS 2024');
-  const [screenColor, setScreenColor] = useState('bg-blue-600');
-  const [isFlashing, setIsFlashing] = useState(false);
-  const [message, setMessage] = useState(null);
-
-  const DJ_PIN = "1234"; // Dein Code zum Abrufen der Wünsche
-
-  // 1. Authentifizierung beim Start (Korrigiert nach Rule 3)
-  useEffect(() => {
-    const initAuth = async () => {
-      try {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
-        } else {
-          await signInAnonymously(auth);
-        }
-      } catch (err) {
-        console.error("Auth Error", err);
-      }
-    };
-    initAuth();
-    const unsubscribe = onAuthStateChanged(auth, setUser);
-    return () => unsubscribe();
-  }, []);
-
-  // 2. Echtzeit-Wünsche laden (nur wenn User eingeloggt ist)
-  useEffect(() => {
-    if (!user) return;
-    if (view !== 'dj-dashboard' && view !== 'fullscreen') return;
-
-    // Pfad nach Rule 1
-    const q = collection(db, 'artifacts', appId, 'public', 'data', 'wishes');
-    
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const wishData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      // Sortierung im Speicher nach Rule 2
-      setWishes(wishData.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)));
-    }, (error) => {
-      console.error("Firestore Error:", error);
-    });
-
-    return () => unsubscribe();
-  }, [user, view]);
-
-  // --- Aktionen ---
-  const submitWish = async (e) => {
-    e.preventDefault();
-    if (!newWish.trim() || !user) return;
-
-    try {
-      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'wishes'), {
-        text: newWish,
-        sender: guestName || 'Anonym',
-        done: false,
-        timestamp: Date.now()
-      });
-      setNewWish('');
-      setGuestName('');
-      setMessage("Wunsch gesendet! 🎵");
-      setTimeout(() => setMessage(null), 3000);
-    } catch (err) {
-      console.error("Fehler beim Senden:", err);
-    }
-  };
-
-  const deleteWish = async (id) => {
-    if (!user) return;
-    try {
-      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'wishes', id));
-    } catch (err) { console.error(err); }
-  };
-
-  const toggleWish = async (id, currentStatus) => {
-    if (!user) return;
-    try {
-      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'wishes', id), {
-        done: !currentStatus
-      });
-    } catch (err) { console.error(err); }
-  };
-
-  const checkPin = () => {
-    if (pin === DJ_PIN) {
-      setView('dj-dashboard');
-    } else {
-      alert("Falscher Code!");
-      setPin('');
-    }
-  };
-
-  // --- Soundboard Logic (Synth) ---
-  const playSound = (type) => {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain); gain.connect(ctx.destination);
-    const now = ctx.currentTime;
-
-    if (type === 'airhorn') {
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(400, now);
-      gain.gain.setValueAtTime(0.3, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
-      osc.start(); osc.stop(now + 0.5);
-    } else if (type === 'laser') {
-      osc.type = 'square';
-      osc.frequency.setValueAtTime(1000, now);
-      osc.frequency.exponentialRampToValueAtTime(50, now + 0.2);
-      gain.gain.setValueAtTime(0.2, now);
-      osc.start(); osc.stop(now + 0.2);
-    }
-  };
-
-  // --- Visuals Effekt für Fullscreen ---
-  useEffect(() => {
-    let interval;
-    if (view === 'fullscreen' && isFlashing) {
-      const colors = ['bg-red-600', 'bg-blue-600', 'bg-green-600', 'bg-purple-600', 'bg-yellow-500'];
-      interval = setInterval(() => {
-        const randomColor = colors[Math.floor(Math.random() * colors.length)];
-        setScreenColor(randomColor);
-      }, 200);
-    } else if (view === 'fullscreen') {
-      setScreenColor('bg-black');
-    }
-    return () => clearInterval(interval);
-  }, [view, isFlashing]);
-
-  // --- VIEWS ---
-
-  if (view === 'landing') {
-    return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-white text-center">
-        <div className="max-w-md w-full space-y-8">
-          <div className="w-20 h-20 bg-gradient-to-tr from-purple-600 to-pink-500 rounded-3xl mx-auto flex items-center justify-center shadow-2xl rotate-3">
-            <Music size={40} />
-          </div>
-          <h1 className="text-4xl font-black italic tracking-tighter uppercase">Party Request</h1>
-          <p className="text-slate-400">Wähle deinen Modus aus:</p>
-          <div className="grid gap-4">
-            <button onClick={() => setView('guest')} className="bg-white text-slate-900 p-6 rounded-2xl font-bold text-xl flex items-center justify-center gap-3 hover:scale-105 transition-transform shadow-xl">
-              <Users /> Ich bin Gast
-            </button>
-            <button onClick={() => setView('dj-auth')} className="bg-slate-800 text-white p-6 rounded-2xl font-bold text-xl flex items-center justify-center gap-3 hover:bg-slate-700 transition-colors">
-              <Lock /> DJ Cockpit
-            </button>
-          </div>
+    <div id="app">
+        <!-- Lade-Bildschirm -->
+        <div id="loading" class="fixed inset-0 flex items-center justify-center bg-slate-900 z-50">
+            <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
         </div>
-      </div>
-    );
-  }
 
-  if (view === 'guest') {
-    return (
-      <div className="min-h-screen bg-slate-50 flex flex-col p-4 sm:p-8">
-        <button onClick={() => setView('landing')} className="flex items-center text-slate-500 font-medium mb-8">
-          <ChevronLeft /> Zurück
-        </button>
-        <div className="max-w-md mx-auto w-full bg-white rounded-3xl shadow-2xl p-8 border border-slate-100">
-          <h2 className="text-3xl font-black mb-2 text-slate-900">Songwunsch 🎶</h2>
-          <p className="text-slate-500 mb-8">Schick deinen Wunsch direkt zum DJ-Pult!</p>
-          
-          <form onSubmit={submitWish} className="space-y-6">
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">Dein Name (optional)</label>
-              <input 
-                type="text" 
-                value={guestName}
-                onChange={(e) => setGuestName(e.target.value)}
-                placeholder="z.B. Tim aus der 4b"
-                className="w-full bg-slate-100 border-none rounded-2xl px-5 py-4 text-slate-900 focus:ring-4 focus:ring-purple-200 outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">Welcher Song?</label>
-              <textarea 
-                required
-                value={newWish}
-                onChange={(e) => setNewWish(e.target.value)}
-                placeholder="Interpret - Titel..."
-                className="w-full bg-slate-100 border-none rounded-2xl px-5 py-4 text-slate-900 h-32 resize-none focus:ring-4 focus:ring-purple-200 outline-none"
-              />
-            </div>
-            <button type="submit" className="w-full bg-gradient-to-r from-purple-600 to-pink-500 text-white font-black py-5 rounded-2xl shadow-lg shadow-purple-200 flex items-center justify-center gap-3 active:scale-95 transition-all">
-              <Send size={24} /> ABSCHICKEN
-            </button>
-          </form>
-
-          {message && (
-            <div className="mt-6 p-4 bg-green-100 text-green-700 rounded-2xl flex items-center gap-2 animate-bounce">
-              <CheckCircle2 size={20} /> {message}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  if (view === 'dj-auth') {
-    return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-6 text-white text-center">
-         <h2 className="text-2xl font-bold mb-6">DJ Zugriffscode</h2>
-         <input 
-          type="password" 
-          value={pin}
-          onChange={(e) => setPin(e.target.value)}
-          placeholder="Code"
-          className="bg-slate-800 border-2 border-slate-700 rounded-xl px-6 py-4 text-center text-3xl tracking-[0.5em] mb-4 w-64 focus:border-purple-500 outline-none"
-         />
-         <button onClick={checkPin} className="bg-purple-600 hover:bg-purple-500 px-8 py-3 rounded-xl font-bold w-64 transition-colors">LOGIN</button>
-         <button onClick={() => setView('landing')} className="mt-8 text-slate-500 hover:text-white transition-colors">Abbrechen</button>
-      </div>
-    );
-  }
-
-  if (view === 'fullscreen') {
-    return (
-      <div className={`w-full h-screen flex flex-col items-center justify-center p-4 transition-colors duration-200 ${screenColor}`}>
-        <button onClick={() => setView('dj-dashboard')} className="absolute top-4 right-4 bg-white/20 hover:bg-white/40 text-white p-2 rounded-full backdrop-blur-sm">
-          <X size={32} />
-        </button>
-        <h1 className="text-6xl md:text-9xl font-black text-white text-center drop-shadow-2xl select-none uppercase tracking-tighter">
-          {screenText}
-        </h1>
-        <div className="absolute bottom-10">
-          <button 
-            onClick={() => setIsFlashing(!isFlashing)} 
-            className={`px-8 py-4 rounded-full font-black text-xl border-4 ${isFlashing ? 'bg-white text-black border-white' : 'bg-transparent text-white border-white'}`}
-          >
-            {isFlashing ? 'STROBE STOP' : 'STROBE START'}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // DJ DASHBOARD
-  return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
-      <header className="p-4 bg-slate-900 border-b border-slate-800 flex justify-between items-center shadow-md">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/20">
-            <Music size={22} className="text-white" />
-          </div>
-          <div>
-            <span className="font-bold text-lg block leading-none">DJ Cockpit</span>
-            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Cloud Sync Active</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="text-right hidden sm:block">
-            <p className="text-[10px] text-slate-500 font-bold uppercase">Angemeldet als</p>
-            <p className="text-xs font-mono text-purple-400">{user?.uid?.substring(0, 8)}...</p>
-          </div>
-          <button onClick={() => setView('landing')} className="bg-slate-800 hover:bg-slate-700 p-2 rounded-lg transition-colors"><X size={20}/></button>
-        </div>
-      </header>
-
-      <main className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 max-w-7xl mx-auto w-full">
-        
-        {/* WÜNSCHE LISTE (CLOUD) */}
-        <div className="bg-slate-900 rounded-3xl p-6 border border-slate-800 flex flex-col h-[calc(100vh-140px)] shadow-2xl">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-black flex items-center gap-2 text-purple-400 italic">
-              <Users /> GAST-WÜNSCHE
-            </h2>
-            <div className="flex items-center gap-2">
-               <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-               <span className="text-green-500 text-xs font-bold uppercase tracking-widest">Live</span>
-            </div>
-          </div>
-          
-          <div className="space-y-3 overflow-y-auto flex-1 pr-2 custom-scrollbar">
-            {wishes.length === 0 && (
-              <div className="flex flex-col items-center justify-center h-full text-slate-600 opacity-50">
-                <Music size={48} className="mb-4" />
-                <p>Noch keine Wünsche eingegangen...</p>
-              </div>
-            )}
-            {wishes.map(wish => (
-              <div key={wish.id} className={`p-4 rounded-2xl flex items-center justify-between gap-4 transition-all group ${wish.done ? 'bg-slate-800/30 opacity-40' : 'bg-slate-800 border border-slate-700 hover:border-purple-500/50'}`}>
-                <div className="flex-1 cursor-pointer" onClick={() => toggleWish(wish.id, wish.done)}>
-                  <p className="text-[10px] text-purple-500 font-black uppercase mb-1 tracking-wider">{wish.sender}</p>
-                  <p className={`text-lg font-bold leading-tight ${wish.done ? 'line-through' : ''}`}>{wish.text}</p>
+        <!-- Hauptinhalt -->
+        <div id="content" class="hidden">
+            <!-- Navigation / Landing -->
+            <div id="view-landing" class="min-h-screen flex items-center justify-center p-6 text-center">
+                <div class="max-w-md w-full space-y-8">
+                    <div class="w-20 h-20 bg-gradient-to-tr from-purple-600 to-pink-500 rounded-3xl mx-auto flex items-center justify-center shadow-2xl rotate-3">
+                        <i data-lucide="music" class="w-10 h-10"></i>
+                    </div>
+                    <h1 class="text-4xl font-black italic tracking-tighter uppercase">Party Request</h1>
+                    <p class="text-slate-400">Wähle deinen Modus aus:</p>
+                    <div class="grid gap-4">
+                        <button onclick="showView('guest')" class="bg-white text-slate-900 p-6 rounded-2xl font-bold text-xl flex items-center justify-center gap-3 hover:scale-105 transition-transform shadow-xl">
+                            <i data-lucide="users"></i> Ich bin Gast
+                        </button>
+                        <button onclick="showView('dj-auth')" class="bg-slate-800 text-white p-6 rounded-2xl font-bold text-xl flex items-center justify-center gap-3 hover:bg-slate-700 transition-colors">
+                            <i data-lucide="lock"></i> DJ Cockpit
+                        </button>
+                    </div>
                 </div>
-                <div className="flex gap-2 shrink-0">
-                   <button 
-                    onClick={() => toggleWish(wish.id, wish.done)} 
-                    className={`p-2 rounded-xl transition-colors ${wish.done ? 'text-slate-500' : 'text-green-500 hover:bg-green-500/10'}`}
-                    title="Als gespielt markieren"
-                   >
-                      <CheckCircle2 size={24} />
-                   </button>
-                   <button 
-                    onClick={() => deleteWish(wish.id)} 
-                    className="text-slate-600 hover:text-red-500 p-2 hover:bg-red-500/10 rounded-xl transition-colors"
-                    title="Löschen"
-                   >
-                      <Trash2 size={24} />
-                   </button>
+            </div>
+
+            <!-- Gast Modus -->
+            <div id="view-guest" class="hidden min-h-screen bg-slate-50 text-slate-900 p-4 sm:p-8">
+                <button onclick="showView('landing')" class="flex items-center text-slate-500 font-medium mb-8">
+                    <i data-lucide="chevron-left"></i> Zurück
+                </button>
+                <div class="max-w-md mx-auto w-full bg-white rounded-3xl shadow-2xl p-8 border border-slate-100">
+                    <h2 class="text-3xl font-black mb-2">Songwunsch 🎶</h2>
+                    <p class="text-slate-500 mb-8">Schick deinen Wunsch direkt zum DJ-Pult!</p>
+                    <div class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Dein Name (optional)</label>
+                            <input type="text" id="guest-name" placeholder="z.B. Tim aus der 4b" class="w-full bg-slate-100 border-none rounded-2xl px-5 py-4 outline-none focus:ring-2 focus:ring-purple-400">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Welcher Song?</label>
+                            <textarea id="guest-wish" placeholder="Interpret - Titel..." class="w-full bg-slate-100 border-none rounded-2xl px-5 py-4 h-32 resize-none outline-none focus:ring-2 focus:ring-purple-400"></textarea>
+                        </div>
+                        <button onclick="submitWish()" class="w-full bg-gradient-to-r from-purple-600 to-pink-500 text-white font-black py-5 rounded-2xl shadow-lg flex items-center justify-center gap-3 active:scale-95 transition-all">
+                            <i data-lucide="send"></i> ABSCHICKEN
+                        </button>
+                    </div>
+                    <div id="success-msg" class="hidden mt-6 p-4 bg-green-100 text-green-700 rounded-2xl flex items-center gap-2 animate-bounce">
+                        <i data-lucide="check-circle-2"></i> Wunsch gesendet! 🎵
+                    </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* RECHTE SEITE: TOOLS */}
-        <div className="space-y-6">
-          <div className="bg-slate-900 rounded-3xl p-6 border border-slate-800 shadow-xl">
-             <h2 className="text-xl font-black mb-4 flex items-center gap-2 italic uppercase text-cyan-400">
-               <Type size={20} /> Visual Message
-             </h2>
-             <div className="space-y-4">
-               <input 
-                  type="text" 
-                  value={screenText}
-                  onChange={(e) => setScreenText(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-center font-black text-2xl focus:ring-2 focus:ring-cyan-500 outline-none"
-               />
-               <div className="grid grid-cols-2 gap-2">
-                  <button onClick={() => setScreenText('MÄDCHEN 👯‍♀️')} className="bg-slate-800 hover:bg-slate-700 py-3 rounded-xl font-bold transition-colors">Mädchen</button>
-                  <button onClick={() => setScreenText('JUNGS 🧢')} className="bg-slate-800 hover:bg-slate-700 py-3 rounded-xl font-bold transition-colors">Jungs</button>
-                  <button onClick={() => setScreenText('LÄRM! 📢')} className="bg-slate-800 hover:bg-slate-700 py-3 rounded-xl font-bold transition-colors">Lärm!</button>
-                  <button onClick={() => setScreenText('HÄNDE HOCH 🙌')} className="bg-slate-800 hover:bg-slate-700 py-3 rounded-xl font-bold transition-colors">Hände hoch</button>
-               </div>
-               <button 
-                onClick={() => setView('fullscreen')} 
-                className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 py-4 rounded-2xl font-black text-xl shadow-lg shadow-cyan-900/40 transition-all hover:scale-[1.01]"
-               >
-                 VOLLBILD MODUS
-               </button>
-             </div>
-          </div>
-
-          <div className="bg-slate-900 rounded-3xl p-6 border border-slate-800 shadow-xl relative overflow-hidden">
-            <div className="absolute -right-4 -bottom-4 opacity-5 pointer-events-none">
-              <Zap size={120} />
             </div>
-            <h2 className="text-xl font-black mb-4 flex items-center gap-2 italic uppercase text-yellow-500">
-              <Zap size={20} /> FX Soundboard
-            </h2>
-            <div className="grid grid-cols-2 gap-4">
-              <button 
-                onMouseDown={() => playSound('airhorn')} 
-                className="bg-yellow-600/10 text-yellow-500 border-2 border-yellow-600/20 hover:border-yellow-500 p-6 rounded-2xl font-black text-xl active:scale-95 transition-all shadow-inner"
-              >
-                📢 HORN
-              </button>
-              <button 
-                onMouseDown={() => playSound('laser')} 
-                className="bg-red-600/10 text-red-500 border-2 border-red-600/20 hover:border-red-500 p-6 rounded-2xl font-black text-xl active:scale-95 transition-all shadow-inner"
-              >
-                🔫 LASER
-              </button>
+
+            <!-- DJ Auth -->
+            <div id="view-dj-auth" class="hidden min-h-screen bg-slate-900 flex flex-col items-center justify-center p-6 text-white text-center">
+                <h2 class="text-2xl font-bold mb-6">DJ Zugriffscode</h2>
+                <input type="password" id="dj-pin-input" placeholder="Code" class="bg-slate-800 border-2 border-slate-700 rounded-xl px-6 py-4 text-center text-3xl tracking-[0.5em] mb-4 w-64 focus:border-purple-500 outline-none">
+                <button onclick="checkPin()" class="bg-purple-600 hover:bg-purple-500 px-8 py-3 rounded-xl font-bold w-64 transition-colors">LOGIN</button>
+                <button onclick="showView('landing')" class="mt-8 text-slate-500 hover:text-white transition-colors">Abbrechen</button>
             </div>
-            <p className="text-[10px] text-slate-600 mt-4 text-center font-bold tracking-widest">SYNTHESIZED AUDIO • NO SAMPLES NEEDED</p>
-          </div>
+
+            <!-- DJ Dashboard -->
+            <div id="view-dj-dashboard" class="hidden min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+                <header class="p-4 bg-slate-900 border-b border-slate-800 flex justify-between items-center shadow-md">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg">
+                            <i data-lucide="music" class="text-white"></i>
+                        </div>
+                        <span class="font-bold text-lg">DJ Cockpit</span>
+                    </div>
+                    <button onclick="showView('landing')" class="bg-slate-800 p-2 rounded-lg"><i data-lucide="x"></i></button>
+                </header>
+                <main class="p-4 grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 max-w-7xl mx-auto w-full">
+                    <!-- Liste -->
+                    <div class="bg-slate-900 rounded-3xl p-6 border border-slate-800 flex flex-col h-[600px] shadow-2xl">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-2xl font-black text-purple-400 italic flex gap-2"><i data-lucide="users"></i> WÜNSCHE</h2>
+                            <span class="text-green-500 text-xs font-bold animate-pulse uppercase">Live Sync</span>
+                        </div>
+                        <div id="wishes-list" class="space-y-3 overflow-y-auto flex-1 pr-2 custom-scrollbar">
+                            <!-- JS füllt das hier -->
+                        </div>
+                    </div>
+                    <!-- Tools -->
+                    <div class="space-y-6">
+                        <div class="bg-slate-900 rounded-3xl p-6 border border-slate-800 shadow-xl">
+                            <h2 class="text-xl font-black mb-4 text-cyan-400 italic uppercase flex gap-2"><i data-lucide="type"></i> Visuals</h2>
+                            <input type="text" id="screen-text-input" value="ABSCHLUSS 2024" class="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-center font-black text-2xl mb-4">
+                            <div class="grid grid-cols-2 gap-2 mb-4">
+                                <button onclick="setScreenText('MÄDCHEN 👯‍♀️')" class="bg-slate-800 py-3 rounded-xl font-bold">Mädchen</button>
+                                <button onclick="setScreenText('JUNGS 🧢')" class="bg-slate-800 py-3 rounded-xl font-bold">Jungs</button>
+                            </div>
+                            <button onclick="showView('fullscreen')" class="w-full bg-cyan-600 py-4 rounded-2xl font-black text-xl">VOLLBILD MODUS</button>
+                        </div>
+                        <div class="bg-slate-900 rounded-3xl p-6 border border-slate-800 shadow-xl">
+                            <h2 class="text-xl font-black mb-4 text-yellow-500 italic uppercase flex gap-2"><i data-lucide="zap"></i> Soundboard</h2>
+                            <div class="grid grid-cols-2 gap-4">
+                                <button onmousedown="playSound('airhorn')" class="bg-yellow-600/10 text-yellow-500 border-2 border-yellow-600/20 p-6 rounded-2xl font-black">📢 HORN</button>
+                                <button onmousedown="playSound('laser')" class="bg-red-600/10 text-red-500 border-2 border-red-600/20 p-6 rounded-2xl font-black">🔫 LASER</button>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            </div>
+
+            <!-- Vollbild -->
+            <div id="view-fullscreen" class="hidden fixed inset-0 bg-black flex flex-col items-center justify-center p-4 z-50 transition-colors duration-200">
+                <button onclick="showView('dj-dashboard')" class="absolute top-4 right-4 bg-white/20 p-2 rounded-full text-white"><i data-lucide="x" class="w-8 h-8"></i></button>
+                <h1 id="fullscreen-text" class="text-6xl md:text-9xl font-black text-white text-center uppercase tracking-tighter"></h1>
+                <div class="absolute bottom-10">
+                    <button id="strobe-btn" onclick="toggleStrobe()" class="px-8 py-4 rounded-full font-black text-xl border-4 border-white text-white">STROBE START</button>
+                </div>
+            </div>
         </div>
-      </main>
-      
-      <footer className="p-2 text-center text-[10px] text-slate-700 font-bold uppercase tracking-widest">
-        DJ Cockpit v2.1 • Created for the Class of 2024
-      </footer>
     </div>
-  );
-}
+
+    <!-- Firebase Scripts -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global Variables
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'dj-party-app';
+        let currentUser = null;
+        let strobeActive = false;
+        let strobeInterval = null;
+
+        // Start Up
+        window.addEventListener('DOMContentLoaded', async () => {
+            lucide.createIcons();
+            
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (e) { console.error(e); }
+
+            onAuthStateChanged(auth, (user) => {
+                currentUser = user;
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('content').classList.remove('hidden');
+            });
+        });
+
+        // Navigation Helper
+        window.showView = (viewName) => {
+            document.querySelectorAll('#content > div').forEach(div => div.classList.add('hidden'));
+            document.getElementById('view-' + viewName).classList.remove('hidden');
+            
+            if (viewName === 'dj-dashboard') initDJListener();
+            if (viewName === 'fullscreen') {
+                document.getElementById('fullscreen-text').innerText = document.getElementById('screen-text-input').value;
+            } else {
+                stopStrobe();
+            }
+        };
+
+        // DJ Actions
+        window.checkPin = () => {
+            const input = document.getElementById('dj-pin-input').value;
+            if (input === "1234") {
+                showView('dj-dashboard');
+            } else {
+                alert("Falscher Code!");
+            }
+        };
+
+        window.submitWish = async () => {
+            const name = document.getElementById('guest-name').value;
+            const wish = document.getElementById('guest-wish').value;
+            if (!wish.trim()) return;
+
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'wishes'), {
+                text: wish,
+                sender: name || 'Anonym',
+                done: false,
+                timestamp: Date.now()
+            });
+
+            document.getElementById('guest-wish').value = '';
+            document.getElementById('success-msg').classList.remove('hidden');
+            setTimeout(() => document.getElementById('success-msg').classList.add('hidden'), 3000);
+        };
+
+        let wishesUnsubscribe = null;
+        function initDJListener() {
+            if (wishesUnsubscribe) wishesUnsubscribe();
+            const q = collection(db, 'artifacts', appId, 'public', 'data', 'wishes');
+            wishesUnsubscribe = onSnapshot(q, (snapshot) => {
+                const wishes = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                renderWishes(wishes.sort((a, b) => b.timestamp - a.timestamp));
+            });
+        }
+
+        function renderWishes(wishes) {
+            const list = document.getElementById('wishes-list');
+            list.innerHTML = wishes.length === 0 ? '<p class="text-center text-slate-600 py-20">Keine Wünsche...</p>' : '';
+            
+            wishes.forEach(wish => {
+                const item = document.createElement('div');
+                item.className = `p-4 rounded-2xl flex items-center justify-between gap-4 transition-all ${wish.done ? 'bg-slate-800/30 opacity-40' : 'bg-slate-800 border border-slate-700'}`;
+                item.innerHTML = `
+                    <div class="flex-1 cursor-pointer">
+                        <p class="text-[10px] text-purple-500 font-black uppercase">${wish.sender}</p>
+                        <p class="text-lg font-bold ${wish.done ? 'line-through' : ''}">${wish.text}</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button class="done-btn text-green-500 p-2"><i data-lucide="check-circle-2"></i></button>
+                        <button class="del-btn text-slate-600 hover:text-red-500 p-2"><i data-lucide="trash-2"></i></button>
+                    </div>
+                `;
+                item.querySelector('.done-btn').onclick = () => updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'wishes', wish.id), { done: !wish.done });
+                item.querySelector('.del-btn').onclick = () => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'wishes', wish.id));
+                list.appendChild(item);
+            });
+            lucide.createIcons();
+        }
+
+        // Visuals & Sound
+        window.setScreenText = (text) => document.getElementById('screen-text-input').value = text;
+
+        window.toggleStrobe = () => {
+            const screen = document.getElementById('view-fullscreen');
+            const btn = document.getElementById('strobe-btn');
+            if (strobeActive) {
+                stopStrobe();
+            } else {
+                strobeActive = true;
+                btn.innerText = 'STROBE STOP';
+                btn.classList.add('bg-white', 'text-black');
+                const colors = ['bg-red-600', 'bg-blue-600', 'bg-green-600', 'bg-purple-600', 'bg-yellow-500'];
+                strobeInterval = setInterval(() => {
+                    screen.className = 'fixed inset-0 flex flex-col items-center justify-center p-4 z-50 transition-none ' + colors[Math.floor(Math.random() * colors.length)];
+                }, 100);
+            }
+        };
+
+        function stopStrobe() {
+            strobeActive = false;
+            clearInterval(strobeInterval);
+            const screen = document.getElementById('view-fullscreen');
+            if (screen) screen.className = 'hidden fixed inset-0 bg-black flex flex-col items-center justify-center p-4 z-50';
+            const btn = document.getElementById('strobe-btn');
+            if (btn) {
+                btn.innerText = 'STROBE START';
+                btn.classList.remove('bg-white', 'text-black');
+            }
+        }
+
+        window.playSound = (type) => {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain); gain.connect(ctx.destination);
+            const now = ctx.currentTime;
+            if (type === 'airhorn') {
+                osc.type = 'sawtooth'; osc.frequency.setValueAtTime(400, now);
+                gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+                osc.start(); osc.stop(now + 0.5);
+            } else {
+                osc.type = 'square'; osc.frequency.setValueAtTime(1000, now);
+                osc.frequency.exponentialRampToValueAtTime(50, now + 0.2);
+                gain.gain.setValueAtTime(0.2, now); osc.start(); osc.stop(now + 0.2);
+            }
+        };
+    </script>
+</body>
+</html>
