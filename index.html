@@ -19,7 +19,10 @@
     <div id="app">
         <!-- Lade-Bildschirm -->
         <div id="loading" class="fixed inset-0 flex items-center justify-center bg-slate-900 z-50">
-            <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+            <div id="loading-content" class="text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500 mx-auto mb-4"></div>
+                <p class="text-slate-400">Lädt Cockpit...</p>
+            </div>
         </div>
 
         <!-- Hauptinhalt -->
@@ -31,7 +34,7 @@
                         <i data-lucide="music" class="w-10 h-10"></i>
                     </div>
                     <h1 class="text-4xl font-black italic tracking-tighter uppercase">Party Request</h1>
-                    <p class="text-slate-400">Wähle deinen Modus aus:</p>
+                    <p class="text-slate-400">Offline-Modus aktiv (Lokal)</p>
                     <div class="grid gap-4">
                         <button onclick="showView('guest')" class="bg-white text-slate-900 p-6 rounded-2xl font-bold text-xl flex items-center justify-center gap-3 hover:scale-105 transition-transform shadow-xl">
                             <i data-lucide="users"></i> Ich bin Gast
@@ -50,22 +53,22 @@
                 </button>
                 <div class="max-w-md mx-auto w-full bg-white rounded-3xl shadow-2xl p-8 border border-slate-100">
                     <h2 class="text-3xl font-black mb-2">Songwunsch 🎶</h2>
-                    <p class="text-slate-500 mb-8">Schick deinen Wunsch direkt zum DJ-Pult!</p>
+                    <p class="text-slate-500 mb-8">Gib deinen Wunsch ein (Lokal gespeichert)</p>
                     <div class="space-y-6">
                         <div>
                             <label class="block text-sm font-bold text-slate-700 mb-2">Dein Name (optional)</label>
-                            <input type="text" id="guest-name" placeholder="z.B. Tim aus der 4b" class="w-full bg-slate-100 border-none rounded-2xl px-5 py-4 outline-none focus:ring-2 focus:ring-purple-400">
+                            <input type="text" id="guest-name" placeholder="z.B. Tim" class="w-full bg-slate-100 border-none rounded-2xl px-5 py-4 outline-none focus:ring-2 focus:ring-purple-400">
                         </div>
                         <div>
                             <label class="block text-sm font-bold text-slate-700 mb-2">Welcher Song?</label>
                             <textarea id="guest-wish" placeholder="Interpret - Titel..." class="w-full bg-slate-100 border-none rounded-2xl px-5 py-4 h-32 resize-none outline-none focus:ring-2 focus:ring-purple-400"></textarea>
                         </div>
                         <button onclick="submitWish()" class="w-full bg-gradient-to-r from-purple-600 to-pink-500 text-white font-black py-5 rounded-2xl shadow-lg flex items-center justify-center gap-3 active:scale-95 transition-all">
-                            <i data-lucide="send"></i> ABSCHICKEN
+                            <i data-lucide="send"></i> SPEICHERN
                         </button>
                     </div>
                     <div id="success-msg" class="hidden mt-6 p-4 bg-green-100 text-green-700 rounded-2xl flex items-center gap-2 animate-bounce">
-                        <i data-lucide="check-circle-2"></i> Wunsch gesendet! 🎵
+                        <i data-lucide="check-circle-2"></i> Wunsch lokal gesichert! 🎵
                     </div>
                 </div>
             </div>
@@ -85,7 +88,7 @@
                         <div class="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg">
                             <i data-lucide="music" class="text-white"></i>
                         </div>
-                        <span class="font-bold text-lg">DJ Cockpit</span>
+                        <span class="font-bold text-lg">Lokal Cockpit</span>
                     </div>
                     <button onclick="showView('landing')" class="bg-slate-800 p-2 rounded-lg"><i data-lucide="x"></i></button>
                 </header>
@@ -94,7 +97,7 @@
                     <div class="bg-slate-900 rounded-3xl p-6 border border-slate-800 flex flex-col h-[600px] shadow-2xl">
                         <div class="flex justify-between items-center mb-6">
                             <h2 class="text-2xl font-black text-purple-400 italic flex gap-2"><i data-lucide="users"></i> WÜNSCHE</h2>
-                            <span class="text-green-500 text-xs font-bold animate-pulse uppercase">Live Sync</span>
+                            <button onclick="clearAllWishes()" class="text-red-500 text-xs font-bold uppercase hover:underline">Alle löschen</button>
                         </div>
                         <div id="wishes-list" class="space-y-3 overflow-y-auto flex-1 pr-2 custom-scrollbar">
                             <!-- JS füllt das hier -->
@@ -104,19 +107,11 @@
                     <div class="space-y-6">
                         <div class="bg-slate-900 rounded-3xl p-6 border border-slate-800 shadow-xl">
                             <h2 class="text-xl font-black mb-4 text-cyan-400 italic uppercase flex gap-2"><i data-lucide="type"></i> Visuals</h2>
-                            <input type="text" id="screen-text-input" value="ABSCHLUSS 2024" class="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-center font-black text-2xl mb-4">
-                            <div class="grid grid-cols-2 gap-2 mb-4">
-                                <button onclick="setScreenText('MÄDCHEN 👯‍♀️')" class="bg-slate-800 py-3 rounded-xl font-bold">Mädchen</button>
-                                <button onclick="setScreenText('JUNGS 🧢')" class="bg-slate-800 py-3 rounded-xl font-bold">Jungs</button>
-                            </div>
-                            <button onclick="showView('fullscreen')" class="w-full bg-cyan-600 py-4 rounded-2xl font-black text-xl">VOLLBILD MODUS</button>
+                            <input type="text" id="screen-text-input" value="PARTY TIME" class="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-center font-black text-2xl mb-4">
+                            <button onclick="showView('fullscreen')" class="w-full bg-cyan-600 py-4 rounded-2xl font-black text-xl">VOLLBILD</button>
                         </div>
-                        <div class="bg-slate-900 rounded-3xl p-6 border border-slate-800 shadow-xl">
-                            <h2 class="text-xl font-black mb-4 text-yellow-500 italic uppercase flex gap-2"><i data-lucide="zap"></i> Soundboard</h2>
-                            <div class="grid grid-cols-2 gap-4">
-                                <button onmousedown="playSound('airhorn')" class="bg-yellow-600/10 text-yellow-500 border-2 border-yellow-600/20 p-6 rounded-2xl font-black">📢 HORN</button>
-                                <button onmousedown="playSound('laser')" class="bg-red-600/10 text-red-500 border-2 border-red-600/20 p-6 rounded-2xl font-black">🔫 LASER</button>
-                            </div>
+                        <div class="bg-slate-900 rounded-3xl p-6 border border-slate-800 shadow-xl text-center">
+                            <p class="text-xs text-slate-500">Hinweis: Ohne Cloud-Anbindung werden Wünsche nur auf diesem Gerät angezeigt.</p>
                         </div>
                     </div>
                 </main>
@@ -133,78 +128,24 @@
         </div>
     </div>
 
-    <!-- Firebase Scripts -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        /** * FIREBASE KONFIGURATION
-         * Wenn du das auf GitHub Pages nutzt, musst du 'DEIN_API_KEY' etc. durch echte Werte 
-         * aus deiner Firebase Console ersetzen.
-         */
-        let firebaseConfig;
-        try {
-            // Versuche erst die automatische Konfiguration der Umgebung
-            firebaseConfig = JSON.parse(__firebase_config);
-        } catch (e) {
-            // FALLBACK FÜR GITHUB PAGES: Hier musst du deine Daten eintragen!
-            firebaseConfig = {
-                apiKey: "DEIN_API_KEY",
-                authDomain: "DEIN_PROJEKT.firebaseapp.com",
-                projectId: "DEIN_PROJEKT_ID",
-                storageBucket: "DEIN_PROJEKT.appspot.com",
-                messagingSenderId: "DEINE_ID",
-                appId: "DEINE_APP_ID"
-            };
-        }
-
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        
-        const myAppId = typeof __app_id !== 'undefined' ? __app_id : 'dj-party-final';
-
+    <script>
+        // Lokale Datenverwaltung (Ersatz für Firebase)
+        let wishes = JSON.parse(localStorage.getItem('party_wishes') || '[]');
         let strobeActive = false;
         let strobeInterval = null;
 
-        // Start Up
-        window.addEventListener('DOMContentLoaded', async () => {
+        window.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
-            
-            try {
-                // Prüfe auf Token (Umgebung) oder nutze anonyme Anmeldung (GitHub)
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (e) { 
-                console.error("Firebase Auth Fehler:", e); 
-                // Wenn der API Key ungültig ist, zeigen wir eine Nachricht im Ladebildschirm
-                document.getElementById('loading').innerHTML = `
-                    <div class="text-center p-6">
-                        <p class="text-red-500 font-bold mb-4">Fehler: Ungültiger API Key</p>
-                        <p class="text-sm text-slate-400">Bitte trage deine echten Firebase-Daten in der index.html ein.</p>
-                    </div>
-                `;
-                return;
-            }
-
-            onAuthStateChanged(auth, (user) => {
-                if (user) {
-                    document.getElementById('loading').classList.add('hidden');
-                    document.getElementById('content').classList.remove('hidden');
-                }
-            });
+            setTimeout(() => {
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('content').classList.remove('hidden');
+            }, 800);
         });
 
-        // Navigation Helper
         window.showView = (viewName) => {
             document.querySelectorAll('#content > div').forEach(div => div.classList.add('hidden'));
             document.getElementById('view-' + viewName).classList.remove('hidden');
-            
-            if (viewName === 'dj-dashboard') initDJListener();
+            if (viewName === 'dj-dashboard') renderWishes();
             if (viewName === 'fullscreen') {
                 document.getElementById('fullscreen-text').innerText = document.getElementById('screen-text-input').value;
             } else {
@@ -212,75 +153,81 @@
             }
         };
 
-        // DJ Actions
         window.checkPin = () => {
-            const input = document.getElementById('dj-pin-input').value;
-            if (input === "1234") {
+            if (document.getElementById('dj-pin-input').value === "1234") {
                 showView('dj-dashboard');
             } else {
-                alert("Falscher Code!");
+                alert("Falscher Code! (Standard: 1234)");
             }
         };
 
-        window.submitWish = async () => {
-            const name = document.getElementById('guest-name').value;
-            const wish = document.getElementById('guest-wish').value;
-            if (!wish.trim()) return;
+        window.submitWish = () => {
+            const name = document.getElementById('guest-name').value || 'Anonym';
+            const text = document.getElementById('guest-wish').value;
+            if (!text.trim()) return;
 
-            try {
-                await addDoc(collection(db, 'artifacts', myAppId, 'public', 'data', 'wishes'), {
-                    text: wish,
-                    sender: name || 'Anonym',
-                    done: false,
-                    timestamp: Date.now()
-                });
-                document.getElementById('guest-wish').value = '';
-                document.getElementById('success-msg').classList.remove('hidden');
-                setTimeout(() => document.getElementById('success-msg').classList.add('hidden'), 3000);
-            } catch (e) {
-                alert("Fehler beim Speichern: " + e.message);
-            }
+            const newWish = {
+                id: Date.now(),
+                sender: name,
+                text: text,
+                done: false
+            };
+
+            wishes.push(newWish);
+            localStorage.setItem('party_wishes', JSON.stringify(wishes));
+
+            document.getElementById('guest-wish').value = '';
+            document.getElementById('success-msg').classList.remove('hidden');
+            setTimeout(() => document.getElementById('success-msg').classList.add('hidden'), 2000);
         };
 
-        let wishesUnsubscribe = null;
-        function initDJListener() {
-            if (wishesUnsubscribe) wishesUnsubscribe();
-            const q = collection(db, 'artifacts', myAppId, 'public', 'data', 'wishes');
-            wishesUnsubscribe = onSnapshot(q, (snapshot) => {
-                const wishes = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-                renderWishes(wishes.sort((a, b) => b.timestamp - a.timestamp));
-            }, (error) => {
-                console.error("Firestore Fehler:", error);
-            });
-        }
-
-        function renderWishes(wishes) {
+        function renderWishes() {
             const list = document.getElementById('wishes-list');
-            list.innerHTML = wishes.length === 0 ? '<p class="text-center text-slate-600 py-20">Keine Wünsche...</p>' : '';
+            list.innerHTML = wishes.length === 0 ? '<p class="text-center text-slate-600 py-20">Keine lokalen Wünsche.</p>' : '';
             
-            wishes.forEach(wish => {
+            wishes.slice().reverse().forEach(wish => {
                 const item = document.createElement('div');
                 item.className = `p-4 rounded-2xl flex items-center justify-between gap-4 transition-all ${wish.done ? 'bg-slate-800/30 opacity-40' : 'bg-slate-800 border border-slate-700'}`;
                 item.innerHTML = `
-                    <div class="flex-1 cursor-pointer">
+                    <div class="flex-1">
                         <p class="text-[10px] text-purple-500 font-black uppercase">${wish.sender}</p>
                         <p class="text-lg font-bold ${wish.done ? 'line-through' : ''}">${wish.text}</p>
                     </div>
                     <div class="flex gap-2">
-                        <button class="done-btn text-green-500 p-2"><i data-lucide="check-circle-2"></i></button>
-                        <button class="del-btn text-slate-600 hover:text-red-500 p-2"><i data-lucide="trash-2"></i></button>
+                        <button onclick="toggleDone(${wish.id})" class="text-green-500 p-2"><i data-lucide="check-circle-2"></i></button>
+                        <button onclick="deleteWish(${wish.id})" class="text-slate-600 hover:text-red-500 p-2"><i data-lucide="trash-2"></i></button>
                     </div>
                 `;
-                item.querySelector('.done-btn').onclick = () => updateDoc(doc(db, 'artifacts', myAppId, 'public', 'data', 'wishes', wish.id), { done: !wish.done });
-                item.querySelector('.del-btn').onclick = () => deleteDoc(doc(db, 'artifacts', myAppId, 'public', 'data', 'wishes', wish.id));
                 list.appendChild(item);
             });
             lucide.createIcons();
         }
 
-        // Visuals & Sound
-        window.setScreenText = (text) => document.getElementById('screen-text-input').value = text;
+        window.toggleDone = (id) => {
+            wishes = wishes.map(w => w.id === id ? {...w, done: !w.done} : w);
+            saveAndRefresh();
+        };
 
+        window.deleteWish = (id) => {
+            wishes = wishes.filter(w => w.id !== id);
+            saveAndRefresh();
+        };
+
+        window.clearAllWishes = () => {
+            if(confirm("Alle Wünsche unwiderruflich löschen?")) {
+                wishes = [];
+                saveAndRefresh();
+            }
+        };
+
+        function saveAndRefresh() {
+            localStorage.setItem('party_wishes', JSON.stringify(wishes));
+            renderWishes();
+        }
+
+        // Tools
+        window.setScreenText = (text) => document.getElementById('screen-text-input').value = text;
+        
         window.toggleStrobe = () => {
             const screen = document.getElementById('view-fullscreen');
             const btn = document.getElementById('strobe-btn');
@@ -293,7 +240,7 @@
                 const colors = ['bg-red-600', 'bg-blue-600', 'bg-green-600', 'bg-purple-600', 'bg-yellow-500'];
                 strobeInterval = setInterval(() => {
                     screen.className = 'fixed inset-0 flex flex-col items-center justify-center p-4 z-50 transition-none ' + colors[Math.floor(Math.random() * colors.length)];
-                }, 100);
+                }, 80);
             }
         };
 
@@ -316,13 +263,13 @@
             osc.connect(gain); gain.connect(ctx.destination);
             const now = ctx.currentTime;
             if (type === 'airhorn') {
-                osc.type = 'sawtooth'; osc.frequency.setValueAtTime(400, now);
-                gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
-                osc.start(); osc.stop(now + 0.5);
+                osc.type = 'sawtooth'; osc.frequency.setValueAtTime(440, now);
+                gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+                osc.start(); osc.stop(now + 0.6);
             } else {
-                osc.type = 'square'; osc.frequency.setValueAtTime(1000, now);
-                osc.frequency.exponentialRampToValueAtTime(50, now + 0.2);
-                gain.gain.setValueAtTime(0.2, now); osc.start(); osc.stop(now + 0.2);
+                osc.type = 'square'; osc.frequency.setValueAtTime(800, now);
+                osc.frequency.exponentialRampToValueAtTime(40, now + 0.3);
+                gain.gain.setValueAtTime(0.2, now); osc.start(); osc.stop(now + 0.3);
             }
         };
     </script>
