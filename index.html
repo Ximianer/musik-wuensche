@@ -139,13 +139,32 @@
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Global Variables
-        const firebaseConfig = JSON.parse(__firebase_config);
+        /** * FIREBASE KONFIGURATION
+         * Wenn du das auf GitHub Pages nutzt, musst du 'DEIN_API_KEY' etc. durch echte Werte 
+         * aus deiner Firebase Console ersetzen.
+         */
+        let firebaseConfig;
+        try {
+            // Versuche erst die automatische Konfiguration der Umgebung
+            firebaseConfig = JSON.parse(__firebase_config);
+        } catch (e) {
+            // FALLBACK FÜR GITHUB PAGES: Hier musst du deine Daten eintragen!
+            firebaseConfig = {
+                apiKey: "DEIN_API_KEY",
+                authDomain: "DEIN_PROJEKT.firebaseapp.com",
+                projectId: "DEIN_PROJEKT_ID",
+                storageBucket: "DEIN_PROJEKT.appspot.com",
+                messagingSenderId: "DEINE_ID",
+                appId: "DEINE_APP_ID"
+            };
+        }
+
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'dj-party-app';
-        let currentUser = null;
+        
+        const myAppId = typeof __app_id !== 'undefined' ? __app_id : 'dj-party-final';
+
         let strobeActive = false;
         let strobeInterval = null;
 
@@ -154,17 +173,29 @@
             lucide.createIcons();
             
             try {
+                // Prüfe auf Token (Umgebung) oder nutze anonyme Anmeldung (GitHub)
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
                     await signInAnonymously(auth);
                 }
-            } catch (e) { console.error(e); }
+            } catch (e) { 
+                console.error("Firebase Auth Fehler:", e); 
+                // Wenn der API Key ungültig ist, zeigen wir eine Nachricht im Ladebildschirm
+                document.getElementById('loading').innerHTML = `
+                    <div class="text-center p-6">
+                        <p class="text-red-500 font-bold mb-4">Fehler: Ungültiger API Key</p>
+                        <p class="text-sm text-slate-400">Bitte trage deine echten Firebase-Daten in der index.html ein.</p>
+                    </div>
+                `;
+                return;
+            }
 
             onAuthStateChanged(auth, (user) => {
-                currentUser = user;
-                document.getElementById('loading').classList.add('hidden');
-                document.getElementById('content').classList.remove('hidden');
+                if (user) {
+                    document.getElementById('loading').classList.add('hidden');
+                    document.getElementById('content').classList.remove('hidden');
+                }
             });
         });
 
@@ -196,25 +227,30 @@
             const wish = document.getElementById('guest-wish').value;
             if (!wish.trim()) return;
 
-            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'wishes'), {
-                text: wish,
-                sender: name || 'Anonym',
-                done: false,
-                timestamp: Date.now()
-            });
-
-            document.getElementById('guest-wish').value = '';
-            document.getElementById('success-msg').classList.remove('hidden');
-            setTimeout(() => document.getElementById('success-msg').classList.add('hidden'), 3000);
+            try {
+                await addDoc(collection(db, 'artifacts', myAppId, 'public', 'data', 'wishes'), {
+                    text: wish,
+                    sender: name || 'Anonym',
+                    done: false,
+                    timestamp: Date.now()
+                });
+                document.getElementById('guest-wish').value = '';
+                document.getElementById('success-msg').classList.remove('hidden');
+                setTimeout(() => document.getElementById('success-msg').classList.add('hidden'), 3000);
+            } catch (e) {
+                alert("Fehler beim Speichern: " + e.message);
+            }
         };
 
         let wishesUnsubscribe = null;
         function initDJListener() {
             if (wishesUnsubscribe) wishesUnsubscribe();
-            const q = collection(db, 'artifacts', appId, 'public', 'data', 'wishes');
+            const q = collection(db, 'artifacts', myAppId, 'public', 'data', 'wishes');
             wishesUnsubscribe = onSnapshot(q, (snapshot) => {
                 const wishes = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
                 renderWishes(wishes.sort((a, b) => b.timestamp - a.timestamp));
+            }, (error) => {
+                console.error("Firestore Fehler:", error);
             });
         }
 
@@ -235,8 +271,8 @@
                         <button class="del-btn text-slate-600 hover:text-red-500 p-2"><i data-lucide="trash-2"></i></button>
                     </div>
                 `;
-                item.querySelector('.done-btn').onclick = () => updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'wishes', wish.id), { done: !wish.done });
-                item.querySelector('.del-btn').onclick = () => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'wishes', wish.id));
+                item.querySelector('.done-btn').onclick = () => updateDoc(doc(db, 'artifacts', myAppId, 'public', 'data', 'wishes', wish.id), { done: !wish.done });
+                item.querySelector('.del-btn').onclick = () => deleteDoc(doc(db, 'artifacts', myAppId, 'public', 'data', 'wishes', wish.id));
                 list.appendChild(item);
             });
             lucide.createIcons();
